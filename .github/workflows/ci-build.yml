@@ -16,11 +16,6 @@
 name: Build project
 
 on:
-  push:
-    branches: [ "main"]
-
-
-  # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
 env:
@@ -38,16 +33,12 @@ jobs:
 
     name: ${{ matrix.setup }}
     steps:
-      - uses: actions/checkout@v2
-      - name: Set up Docker
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y docker.io
-          sudo systemctl start docker
-          sudo systemctl enable docker
+      - uses: actions/checkout@v4
+
       # Cache .m2/repository
       - name: Cache local Maven repository
-        uses: actions/cache@v2
+        uses: actions/cache@v4
+        continue-on-error: true
         with:
           path: ~/.m2/repository
           key: ${{ runner.os }}-maven-${{ matrix.setup }}-${{ hashFiles('**/pom.xml') }}
@@ -55,20 +46,11 @@ jobs:
             ${{ runner.os }}-maven-${{ matrix.setup }}-
             ${{ runner.os }}-maven-
 
-      # Enable caching of Docker layers
-      - uses: satackey/action-docker-layer-caching@v0.0.11
-        continue-on-error: true
-        with:
-          key: build-docker-cache-${{ matrix.setup }}-{hash}
-          restore-keys: |
-            build-docker-cache-${{ matrix.setup }}-
-            build-docker-cache-
-
       - name: Build docker image
-        run: docker-compose ${{ matrix.docker-compose-build }}
+        run: docker compose ${{ matrix.docker-compose-build }}
 
       - name: Build project without leak detection
-        run: docker-compose ${{ matrix.docker-compose-run }} | tee build.output
+        run: docker compose ${{ matrix.docker-compose-run }} | tee build.output
 
       - name: Checking for test failures
         run: ./.github/scripts/check_build_result.sh build.output
@@ -76,5 +58,8 @@ jobs:
       - name: Checking bom dependency versions
         run: ./.github/scripts/check_bom_dependencies.sh
 
-      - uses: actions/upload-artifact@v4
+      - name: print JVM thread dumps when cancelled
+        uses: ./.github/actions/thread-dump-jvms
+        if: cancelled()
 
+      - uses: actions/upload-artifact@v4
