@@ -39,7 +39,12 @@ jobs:
     name: ${{ matrix.setup }}
     steps:
       - uses: actions/checkout@v2
-
+      - name: Set up Docker
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y docker.io
+          sudo systemctl start docker
+          sudo systemctl enable docker
       # Cache .m2/repository
       - name: Cache local Maven repository
         uses: actions/cache@v2
